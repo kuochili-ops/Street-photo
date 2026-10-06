@@ -178,7 +178,7 @@
         .polaroid-photo-box img {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: cover; /* 預覽時保持比例填滿不變形 */
         }
 
         .polaroid-input {
@@ -203,7 +203,7 @@
     <!-- 3D 舞台容器 -->
     <div id="webgl-container">
         <div class="hint-badge">
-            🖐️️ 單指滑動旋轉 3D 場景 | 雙指捏合/滾輪放大縮小 (Zoom)
+            🖐️ 單指滑動旋轉 3D 場景 | 雙指捏合/滾輪放大縮小 (Zoom)
         </div>
     </div>
 
@@ -309,7 +309,7 @@
         dirLight.shadow.bias = -0.0003;
         scene.add(dirLight);
 
-        // 3. 生成真實街道等級的水泥牆與高精細人行道磚紋理
+        // 3. 水泥牆與高精細人行道磚紋理
         function createCementTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 512; canvas.height = 512;
@@ -324,13 +324,11 @@
             return new THREE.CanvasTexture(canvas);
         }
 
-        // 全新優化：真實感擬真人行道磚紋理
         function createRealisticSidewalkTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 1024; canvas.height = 512;
             const ctx = canvas.getContext('2d');
 
-            // 底層水泥色
             ctx.fillStyle = '#4a4d53';
             ctx.fillRect(0, 0, 1024, 512);
 
@@ -344,18 +342,15 @@
                     const x = c * tileW;
                     const y = r * tileH;
 
-                    // 磚塊隨機色階
                     const shade = 75 + Math.floor(Math.random() * 25);
                     ctx.fillStyle = `rgb(${shade}, ${shade + 3}, ${shade + 8})`;
                     ctx.fillRect(x + 3, y + 3, tileW - 6, tileH - 6);
 
-                    // 磚塊表面磨砂質感
                     for (let k = 0; k < 200; k++) {
                         ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.08)';
                         ctx.fillRect(x + 3 + Math.random() * (tileW - 6), y + 3 + Math.random() * (tileH - 6), 2, 2);
                     }
 
-                    // 磚塊邊緣陰影與凹凸溝縫
                     ctx.fillStyle = 'rgba(0,0,0,0.4)';
                     ctx.fillRect(x, y, tileW, 3);
                     ctx.fillRect(x, y, 3, tileH);
@@ -381,7 +376,6 @@
         wallMesh.receiveShadow = true;
         scene.add(wallMesh);
 
-        // 人行道寬度 7.5
         const sidewalkMat = new THREE.MeshStandardMaterial({ map: createRealisticSidewalkTexture(), roughness: 0.7 });
         const sidewalkGeo = new THREE.PlaneGeometry(30, 7.5);
         const sidewalkMesh = new THREE.Mesh(sidewalkGeo, sidewalkMat);
@@ -481,7 +475,6 @@
                 subjectMesh = new THREE.Mesh(geo, mat);
                 subjectMesh.position.set(0, 3.2, 0.08);
 
-                // 精準依據軀體 Alpha 輪廓投射陰影
                 subjectMesh.customDepthMaterial = new THREE.MeshDepthMaterial({
                     depthPacking: THREE.RGBADepthPacking,
                     map: tex,
@@ -557,7 +550,7 @@
             document.getElementById('polaroid-modal').classList.remove('active');
         }
 
-        // 6. 核心功能：跨平台（包含 iOS / Android / Desktop）存檔修復（Blob 下載）
+        // 6. 關鍵修正：等比例裁切渲染（Aspect Cover），徹底解決存檔圖片被上下壓縮變形的問題
         function downloadPolaroidWithFrame() {
             const exportCanvas = document.createElement('canvas');
             const ctx = exportCanvas.getContext('2d');
@@ -567,14 +560,33 @@
             exportCanvas.width = w;
             exportCanvas.height = h;
 
-            // 1. 白色邊框
+            // 1. 白色底框
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, w, h);
 
-            // 2. 拍攝照片渲染
+            // 2. 拍攝照片等比例裁切繪製（正方形相框 540x540）
             const photoImg = new Image();
             photoImg.onload = () => {
-                ctx.drawImage(photoImg, 30, 30, 540, 540);
+                const targetW = 540;
+                const targetH = 540;
+                const imgW = photoImg.width;
+                const imgH = photoImg.height;
+
+                // 計算 Cover 等比例切片參數，絕不拉伸與壓扁
+                let srcX = 0, srcY = 0, srcW = imgW, srcH = imgH;
+                const imgAspect = imgW / imgH;
+                const targetAspect = targetW / targetH;
+
+                if (imgAspect > targetAspect) {
+                    srcW = imgH * targetAspect;
+                    srcX = (imgW - srcW) / 2;
+                } else {
+                    srcH = imgW / targetAspect;
+                    srcY = (imgH - srcH) / 2;
+                }
+
+                // 精準渲染正方形相片區域
+                ctx.drawImage(photoImg, srcX, srcY, srcW, srcH, 30, 30, targetW, targetH);
 
                 // 3. 繪製手寫文字訊息
                 const messageText = document.getElementById('polaroid-text-input').value || "Street Art 2026";
@@ -584,7 +596,7 @@
                 ctx.textBaseline = 'middle';
                 ctx.fillText(messageText, w / 2, 640);
 
-                // 4. 採用相容性最強的 Blob Stream 下載法
+                // 4. Blob Stream 高相容性下載
                 exportCanvas.toBlob((blob) => {
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
