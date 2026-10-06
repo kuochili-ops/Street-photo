@@ -421,7 +421,7 @@
         sidewalkMesh.receiveShadow = true;
         scene.add(sidewalkMesh);
 
-        // 5. 藝術風格與影像處理核心 (Canvas Shader Filters)
+        // 5. 核心關鍵修復：先去背景保持透明，再處理藝術風格（風格圖 100% 透明背景）
         let subjectMesh = null;
         let loadedImgObj = null;
         let currentStyle = 'original';
@@ -445,7 +445,7 @@
             const imgData = cCtx.getImageData(0, 0, w, h);
             const data = imgData.data;
 
-            // 1. 外圍連通背景挖除 (BFS Floodfill)
+            // 第一步：精準去除外圍背景底色（BFS 連通演算法）
             if (threshold > 0) {
                 const bgR = data[0], bgG = data[1], bgB = data[2];
                 const visited = new Uint8Array(w * h);
@@ -480,72 +480,43 @@
                 }
             }
 
-            // 2. 藝術風格濾鏡即時運算
+            // 第二步：僅對非透明主體像素套用藝術濾鏡（背景保持 100% 透明，決不填色！）
             if (currentStyle !== 'original') {
-                const styleCanvas = document.createElement('canvas');
-                styleCanvas.width = w; styleCanvas.height = h;
-                const sCtx = styleCanvas.getContext('2d');
+                for (let i = 0; i < data.length; i += 4) {
+                    // 只處理 Alpha > 10 的主體像素
+                    if (data[i + 3] > 10) {
+                        let r = data[i], g = data[i + 1], b = data[i + 2];
 
-                if (currentStyle === 'comic') { // 美式漫畫風 (墨線描邊 + 飽和彩度)
-                    sCtx.drawImage(c, 0, 0);
-                    const sData = sCtx.getImageData(0, 0, w, h);
-                    const pixels = sData.data;
-                    for (let i = 0; i < pixels.length; i += 4) {
-                        if (pixels[i + 3] > 10) {
-                            let v = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
-                            let quant = Math.floor(v / 64) * 64 + 32;
-                            pixels[i] = Math.min(255, pixels[i] * 1.35);
-                            pixels[i + 1] = Math.min(255, pixels[i + 1] * 1.2);
-                            pixels[i + 2] = Math.min(255, pixels[i + 2] * 1.1);
-                            if (v < 65) { pixels[i] = 20; pixels[i + 1] = 20; pixels[i + 2] = 20; }
-                        }
-                    }
-                    sCtx.putImageData(sData, 0, 0);
-
-                } else if (currentStyle === 'graffiti') { // 街頭塗鴉噴漆風
-                    sCtx.drawImage(c, 0, 0);
-                    const sData = sCtx.getImageData(0, 0, w, h);
-                    const pixels = sData.data;
-                    for (let i = 0; i < pixels.length; i += 4) {
-                        if (pixels[i + 3] > 10) {
-                            pixels[i] = Math.min(255, pixels[i] * 1.4);
-                            pixels[i + 1] = Math.min(255, pixels[i + 1] * 1.25);
-                            if (Math.random() < 0.08) pixels[i + 3] = 0; // 顆粒噴霧細孔
-                        }
-                    }
-                    sCtx.putImageData(sData, 0, 0);
-
-                } else if (currentStyle === 'cyberpunk') { // 賽博朋克霓虹風
-                    sCtx.drawImage(c, 0, 0);
-                    const sData = sCtx.getImageData(0, 0, w, h);
-                    const pixels = sData.data;
-                    for (let i = 0; i < pixels.length; i += 4) {
-                        if (pixels[i + 3] > 10) {
-                            let gray = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
-                            if (gray > 128) {
-                                pixels[i] = 255; pixels[i + 1] = 0; pixels[i + 2] = 180; // 霓虹洋紅
+                        if (currentStyle === 'comic') { // 美式漫畫風 (高對比色塊 + 強筆觸)
+                            let v = (r + g + b) / 3;
+                            if (v < 65) {
+                                data[i] = 20; data[i + 1] = 20; data[i + 2] = 20;
                             } else {
-                                pixels[i] = 0; pixels[i + 1] = 220; pixels[i + 2] = 255; // 賽博青色
+                                data[i] = Math.min(255, r * 1.35);
+                                data[i + 1] = Math.min(255, g * 1.2);
+                                data[i + 2] = Math.min(255, b * 1.1);
                             }
-                        }
-                    }
-                    sCtx.putImageData(sData, 0, 0);
 
-                } else if (currentStyle === 'sketch') { // 黑白手繪素描風
-                    sCtx.drawImage(c, 0, 0);
-                    const sData = sCtx.getImageData(0, 0, w, h);
-                    const pixels = sData.data;
-                    for (let i = 0; i < pixels.length; i += 4) {
-                        if (pixels[i + 3] > 10) {
-                            let g = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
-                            g = g < 100 ? g * 0.5 : Math.min(255, g * 1.2);
-                            pixels[i] = g; pixels[i + 1] = g; pixels[i + 2] = g;
+                        } else if (currentStyle === 'graffiti') { // 街頭塗鴉噴漆風
+                            data[i] = Math.min(255, r * 1.4);
+                            data[i + 1] = Math.min(255, g * 1.25);
+                            if (Math.random() < 0.06) data[i + 3] = 0; // 細微噴霧空隙
+
+                        } else if (currentStyle === 'cyberpunk') { // 賽博朋克霓虹風
+                            let gray = (r + g + b) / 3;
+                            if (gray > 128) {
+                                data[i] = 255; data[i + 1] = 0; data[i + 2] = 180;
+                            } else {
+                                data[i] = 0; data[i + 1] = 220; data[i + 2] = 255;
+                            }
+
+                        } else if (currentStyle === 'sketch') { // 黑白手繪素描風
+                            let gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                            gray = gray < 90 ? gray * 0.4 : Math.min(255, gray * 1.25);
+                            data[i] = gray; data[i + 1] = gray; data[i + 2] = gray;
                         }
                     }
-                    sCtx.putImageData(sData, 0, 0);
                 }
-
-                return styleCanvas.toDataURL();
             }
 
             cCtx.putImageData(imgData, 0, 0);
@@ -588,6 +559,7 @@
                 subjectMesh = new THREE.Mesh(geo, mat);
                 subjectMesh.position.set(0, 3.2, 0.08);
 
+                // 精準依據軀體 Alpha 輪廓投射陰影
                 subjectMesh.customDepthMaterial = new THREE.MeshDepthMaterial({
                     depthPacking: THREE.RGBADepthPacking,
                     map: tex,
@@ -663,7 +635,7 @@
             document.getElementById('polaroid-modal').classList.remove('active');
         }
 
-        // 6. 等比例 Cover 裁切繪製（解決拍立得相片壓扁問題）
+        // 6. 等比例 Cover 裁切繪製（解決拍立得相片壓扁與存檔問題）
         function downloadPolaroidWithFrame() {
             const exportCanvas = document.createElement('canvas');
             const ctx = exportCanvas.getContext('2d');
