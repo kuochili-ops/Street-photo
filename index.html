@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D 真實街景 L型壁畫與拍立得生成器</title>
+    <title>3D 真實街景 L型壁畫與多風格拍立得生成器</title>
     <!-- 引入 Three.js 3D 引擎與 OrbitControls 控制器 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -98,7 +98,7 @@
             border-top: 1px solid rgba(255, 255, 255, 0.15);
             border-radius: 20px 20px 0 0;
             padding: 16px 20px 24px 20px;
-            max-height: 70vh;
+            max-height: 75vh;
             overflow-y: auto;
             z-index: 40;
             transition: transform 0.3s ease, opacity 0.2s ease;
@@ -122,11 +122,39 @@
         .panel-title { font-size: 15px; font-weight: 700; }
         .btn-close { background: rgba(255,255,255,0.1); border: none; color: #aaa; padding: 4px 12px; border-radius: 12px; font-size: 12px; cursor: pointer; }
 
-        .section-title { font-size: 11px; font-weight: 600; color: #818cf8; margin: 10px 0 6px 0; text-transform: uppercase; }
+        .section-title { font-size: 11px; font-weight: 600; color: #818cf8; margin: 12px 0 8px 0; text-transform: uppercase; }
 
         .upload-row { display: flex; gap: 8px; margin-bottom: 10px; }
         .btn-upload { flex: 1; background: #4f46e5; color: white; padding: 10px; border-radius: 10px; text-align: center; font-size: 13px; font-weight: 600; cursor: pointer; }
         #file-input { display: none; }
+
+        /* 風格選擇按鈕列 */
+        .style-options {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .btn-style {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #ccc;
+            padding: 8px 4px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .btn-style.active {
+            background: #6366f1;
+            color: white;
+            border-color: #818cf8;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+        }
 
         .control-item { margin-bottom: 10px; }
         .control-label { display: flex; justify-content: space-between; font-size: 11px; color: #ccc; margin-bottom: 2px; }
@@ -178,7 +206,7 @@
         .polaroid-photo-box img {
             width: 100%;
             height: 100%;
-            object-fit: cover; /* 預覽時保持比例填滿不變形 */
+            object-fit: cover;
         }
 
         .polaroid-input {
@@ -217,7 +245,7 @@
     <!-- 控制選單面板 -->
     <div class="control-panel collapsed" id="control-panel">
         <div class="panel-header">
-            <div class="panel-title">🎨 壁畫位置與光影設定</div>
+            <div class="panel-title">🎨 壁畫藝術風格與光影設定</div>
             <button class="btn-close" onclick="closePanel()">完成 ✕</button>
         </div>
 
@@ -227,12 +255,21 @@
             <input type="file" id="file-input" accept="image/*" onchange="handleFileUpload(event)">
         </div>
 
+        <div class="section-title">步驟 2：主體藝術風格選擇</div>
+        <div class="style-options">
+            <button class="btn-style active" onclick="setArtStyle('original', this)">📷 原圖照片</button>
+            <button class="btn-style" onclick="setArtStyle('comic', this)">🎨 美式漫畫</button>
+            <button class="btn-style" onclick="setArtStyle('graffiti', this)">🖌️ 街頭塗鴉</button>
+            <button class="btn-style" onclick="setArtStyle('cyberpunk', this)">⚡ 賽博朋克</button>
+            <button class="btn-style" onclick="setArtStyle('sketch', this)">✏️ 黑白素描</button>
+        </div>
+
         <div class="control-item">
             <div class="control-label"><span>底色過濾強度</span><span class="control-val" id="val-bg">40</span></div>
             <input type="range" id="input-bg" min="0" max="150" value="40" oninput="reprocessCurrentImg()">
         </div>
 
-        <div class="section-title">步驟 2：壁畫位置與縮放</div>
+        <div class="section-title">步驟 3：壁畫位置與縮放</div>
         <div class="control-item">
             <div class="control-label"><span>左右位置 X</span><span class="control-val" id="val-posx">0</span></div>
             <input type="range" id="input-posx" min="-10" max="10" step="0.1" value="0" oninput="updateSubjectTransform()">
@@ -246,7 +283,7 @@
             <input type="range" id="input-scale" min="0.3" max="2.5" step="0.1" value="1.0" oninput="updateSubjectTransform()">
         </div>
 
-        <div class="section-title">步驟 3：3D 陰影與光源控制 (支援 170° 右側大角度)</div>
+        <div class="section-title">步驟 4：3D 陰影與光源控制 (支援 170° 右側大角度)</div>
         <div class="control-item">
             <div class="control-label"><span>光源角度 Light Angle</span><span class="control-val" id="val-light">170°</span></div>
             <input type="range" id="input-light" min="0" max="360" value="170" oninput="updateLight()">
@@ -384,10 +421,18 @@
         sidewalkMesh.receiveShadow = true;
         scene.add(sidewalkMesh);
 
-        // 5. 去背景與軀體輪廓陰影 (CustomDepthMaterial)
+        // 5. 藝術風格與影像處理核心 (Canvas Shader Filters)
         let subjectMesh = null;
         let loadedImgObj = null;
+        let currentStyle = 'original';
         let currentPhotoDataUrl = "";
+
+        function setArtStyle(styleName, btnElem) {
+            currentStyle = styleName;
+            document.querySelectorAll('.btn-style').forEach(btn => btn.classList.remove('active'));
+            if (btnElem) btnElem.classList.add('active');
+            reprocessCurrentImg();
+        }
 
         function removeOuterBackground(imgObj, threshold) {
             const c = document.createElement('canvas');
@@ -397,42 +442,110 @@
             const cCtx = c.getContext('2d');
             cCtx.drawImage(imgObj, 0, 0);
 
-            if (threshold === 0) return c.toDataURL();
-
             const imgData = cCtx.getImageData(0, 0, w, h);
             const data = imgData.data;
 
-            const bgR = data[0], bgG = data[1], bgB = data[2];
+            // 1. 外圍連通背景挖除 (BFS Floodfill)
+            if (threshold > 0) {
+                const bgR = data[0], bgG = data[1], bgB = data[2];
+                const visited = new Uint8Array(w * h);
+                const queue = [0, w - 1, (h - 1) * w, h * w - 1];
+                queue.forEach(idx => visited[idx] = 1);
 
-            const visited = new Uint8Array(w * h);
-            const queue = [0, w - 1, (h - 1) * w, h * w - 1];
-            queue.forEach(idx => visited[idx] = 1);
+                while (queue.length > 0) {
+                    const curr = queue.shift();
+                    const px = curr % w;
+                    const py = Math.floor(curr / w);
+                    const i = curr * 4;
 
-            while (queue.length > 0) {
-                const curr = queue.shift();
-                const px = curr % w;
-                const py = Math.floor(curr / w);
-                const i = curr * 4;
+                    const r = data[i], g = data[i + 1], b = data[i + 2];
+                    const dist = Math.sqrt((r - bgR)**2 + (g - bgG)**2 + (b - bgB)**2);
 
-                const r = data[i], g = data[i + 1], b = data[i + 2];
-                const dist = Math.sqrt((r - bgR)**2 + (g - bgG)**2 + (b - bgB)**2);
+                    if (dist <= threshold) {
+                        data[i] = 0; data[i + 1] = 0; data[i + 2] = 0; data[i + 3] = 0;
 
-                if (dist <= threshold) {
-                    data[i] = 0; data[i + 1] = 0; data[i + 2] = 0; data[i + 3] = 0;
+                        const neighbors = [];
+                        if (px > 0) neighbors.push(curr - 1);
+                        if (px < w - 1) neighbors.push(curr + 1);
+                        if (py > 0) neighbors.push(curr - w);
+                        if (py < h - 1) neighbors.push(curr + w);
 
-                    const neighbors = [];
-                    if (px > 0) neighbors.push(curr - 1);
-                    if (px < w - 1) neighbors.push(curr + 1);
-                    if (py > 0) neighbors.push(curr - w);
-                    if (py < h - 1) neighbors.push(curr + w);
-
-                    for (let n of neighbors) {
-                        if (!visited[n]) {
-                            visited[n] = 1;
-                            queue.push(n);
+                        for (let n of neighbors) {
+                            if (!visited[n]) {
+                                visited[n] = 1;
+                                queue.push(n);
+                            }
                         }
                     }
                 }
+            }
+
+            // 2. 藝術風格濾鏡即時運算
+            if (currentStyle !== 'original') {
+                const styleCanvas = document.createElement('canvas');
+                styleCanvas.width = w; styleCanvas.height = h;
+                const sCtx = styleCanvas.getContext('2d');
+
+                if (currentStyle === 'comic') { // 美式漫畫風 (墨線描邊 + 飽和彩度)
+                    sCtx.drawImage(c, 0, 0);
+                    const sData = sCtx.getImageData(0, 0, w, h);
+                    const pixels = sData.data;
+                    for (let i = 0; i < pixels.length; i += 4) {
+                        if (pixels[i + 3] > 10) {
+                            let v = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
+                            let quant = Math.floor(v / 64) * 64 + 32;
+                            pixels[i] = Math.min(255, pixels[i] * 1.35);
+                            pixels[i + 1] = Math.min(255, pixels[i + 1] * 1.2);
+                            pixels[i + 2] = Math.min(255, pixels[i + 2] * 1.1);
+                            if (v < 65) { pixels[i] = 20; pixels[i + 1] = 20; pixels[i + 2] = 20; }
+                        }
+                    }
+                    sCtx.putImageData(sData, 0, 0);
+
+                } else if (currentStyle === 'graffiti') { // 街頭塗鴉噴漆風
+                    sCtx.drawImage(c, 0, 0);
+                    const sData = sCtx.getImageData(0, 0, w, h);
+                    const pixels = sData.data;
+                    for (let i = 0; i < pixels.length; i += 4) {
+                        if (pixels[i + 3] > 10) {
+                            pixels[i] = Math.min(255, pixels[i] * 1.4);
+                            pixels[i + 1] = Math.min(255, pixels[i + 1] * 1.25);
+                            if (Math.random() < 0.08) pixels[i + 3] = 0; // 顆粒噴霧細孔
+                        }
+                    }
+                    sCtx.putImageData(sData, 0, 0);
+
+                } else if (currentStyle === 'cyberpunk') { // 賽博朋克霓虹風
+                    sCtx.drawImage(c, 0, 0);
+                    const sData = sCtx.getImageData(0, 0, w, h);
+                    const pixels = sData.data;
+                    for (let i = 0; i < pixels.length; i += 4) {
+                        if (pixels[i + 3] > 10) {
+                            let gray = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
+                            if (gray > 128) {
+                                pixels[i] = 255; pixels[i + 1] = 0; pixels[i + 2] = 180; // 霓虹洋紅
+                            } else {
+                                pixels[i] = 0; pixels[i + 1] = 220; pixels[i + 2] = 255; // 賽博青色
+                            }
+                        }
+                    }
+                    sCtx.putImageData(sData, 0, 0);
+
+                } else if (currentStyle === 'sketch') { // 黑白手繪素描風
+                    sCtx.drawImage(c, 0, 0);
+                    const sData = sCtx.getImageData(0, 0, w, h);
+                    const pixels = sData.data;
+                    for (let i = 0; i < pixels.length; i += 4) {
+                        if (pixels[i + 3] > 10) {
+                            let g = 0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
+                            g = g < 100 ? g * 0.5 : Math.min(255, g * 1.2);
+                            pixels[i] = g; pixels[i + 1] = g; pixels[i + 2] = g;
+                        }
+                    }
+                    sCtx.putImageData(sData, 0, 0);
+                }
+
+                return styleCanvas.toDataURL();
             }
 
             cCtx.putImageData(imgData, 0, 0);
@@ -550,7 +663,7 @@
             document.getElementById('polaroid-modal').classList.remove('active');
         }
 
-        // 6. 關鍵修正：等比例裁切渲染（Aspect Cover），徹底解決存檔圖片被上下壓縮變形的問題
+        // 6. 等比例 Cover 裁切繪製（解決拍立得相片壓扁問題）
         function downloadPolaroidWithFrame() {
             const exportCanvas = document.createElement('canvas');
             const ctx = exportCanvas.getContext('2d');
@@ -564,7 +677,7 @@
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, w, h);
 
-            // 2. 拍攝照片等比例裁切繪製（正方形相框 540x540）
+            // 2. 拍攝照片等比例 Cover 裁切繪製
             const photoImg = new Image();
             photoImg.onload = () => {
                 const targetW = 540;
@@ -572,7 +685,6 @@
                 const imgW = photoImg.width;
                 const imgH = photoImg.height;
 
-                // 計算 Cover 等比例切片參數，絕不拉伸與壓扁
                 let srcX = 0, srcY = 0, srcW = imgW, srcH = imgH;
                 const imgAspect = imgW / imgH;
                 const targetAspect = targetW / targetH;
@@ -585,7 +697,6 @@
                     srcY = (imgH - srcH) / 2;
                 }
 
-                // 精準渲染正方形相片區域
                 ctx.drawImage(photoImg, srcX, srcY, srcW, srcH, 30, 30, targetW, targetH);
 
                 // 3. 繪製手寫文字訊息
