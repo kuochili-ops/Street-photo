@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D 真實街景 L型壁畫與拍立得生成器</title>
+    <!-- 引入 Three.js 3D 引擎與 OrbitControls 控制器 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #0b0c10;
+            color: #ffffff;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 3D WebGL Canvas 容器 */
+        #webgl-container {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            touch-action: none;
+            background: #08090c;
+        }
+
+        /* 頂部操作提示 */
+        .hint-badge {
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.75);
+            backdrop-filter: blur(8px);
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 11px;
+            color: #eee;
+            pointer-events: none;
+            z-index: 20;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        /* 底部操作按鈕 */
+        .action-bar {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            z-index: 30;
+            pointer-events: none;
+        }
+
+        .btn-action {
+            pointer-events: auto;
+            background: rgba(255, 255, 255, 0.18);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 10px 16px;
+            border-radius: 25px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+
+        .btn-shutter {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            border: none;
+        }
+
+        /* 控制選單面板 */
+        .control-panel {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(18, 20, 30, 0.96);
+            backdrop-filter: blur(16px);
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 20px 20px 0 0;
+            padding: 16px 20px 24px 20px;
+            max-height: 70vh;
+            overflow-y: auto;
+            z-index: 40;
+            transition: transform 0.3s ease, opacity 0.2s ease;
+        }
+
+        .control-panel.collapsed {
+            transform: translateY(100%);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .panel-title { font-size: 15px; font-weight: 700; }
+        .btn-close { background: rgba(255,255,255,0.1); border: none; color: #aaa; padding: 4px 12px; border-radius: 12px; font-size: 12px; cursor: pointer; }
+
+        .section-title { font-size: 11px; font-weight: 600; color: #818cf8; margin: 10px 0 6px 0; text-transform: uppercase; }
+
+        .upload-row { display: flex; gap: 8px; margin-bottom: 10px; }
+        .btn-upload { flex: 1; background: #4f46e5; color: white; padding: 10px; border-radius: 10px; text-align: center; font-size: 13px; font-weight: 600; cursor: pointer; }
+        #file-input { display: none; }
+
+        .control-item { margin-bottom: 10px; }
+        .control-label { display: flex; justify-content: space-between; font-size: 11px; color: #ccc; margin-bottom: 2px; }
+        .control-val { color: #818cf8; font-weight: 600; }
+
+        input[type="range"] { width: 100%; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.15); outline: none; -webkit-appearance: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #fff; cursor: pointer; }
+
+        /* 拍立得彈窗 */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(12px);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            padding: 20px;
+        }
+
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+
+        .polaroid-card {
+            background: #ffffff;
+            padding: 16px 16px 28px 16px;
+            border-radius: 4px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 310px;
+        }
+
+        .polaroid-photo-box {
+            width: 278px;
+            height: 278px;
+            overflow: hidden;
+            background: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid #eee;
+        }
+
+        .polaroid-photo-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .polaroid-input {
+            width: 100%;
+            margin-top: 16px;
+            border: none;
+            outline: none;
+            text-align: center;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 16px;
+            font-weight: bold;
+            color: #222;
+            background: transparent;
+        }
+
+        .modal-btns { margin-top: 18px; display: flex; gap: 10px; }
+        .btn-modal { background: #333; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-size: 13px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <!-- 3D 舞台容器 -->
+    <div id="webgl-container">
+        <div class="hint-badge">
+            🖐️️ 單指滑動旋轉 3D 場景 | 雙指捏合/滾輪放大縮小 (Zoom)
+        </div>
+    </div>
+
+    <!-- 底部操作按鈕 -->
+    <div class="action-bar">
+        <button class="btn-action" onclick="resetCamera()">🎯 鏡頭復位</button>
+        <button class="btn-action" onclick="openPanel()">⚙️ 調整參數</button>
+        <button class="btn-action btn-shutter" onclick="takePolaroid()">📸 拍攝拍立得</button>
+    </div>
+
+    <!-- 控制選單面板 -->
+    <div class="control-panel collapsed" id="control-panel">
+        <div class="panel-header">
+            <div class="panel-title">🎨 壁畫位置與光影設定</div>
+            <button class="btn-close" onclick="closePanel()">完成 ✕</button>
+        </div>
+
+        <div class="section-title">步驟 1：主體照片上傳</div>
+        <div class="upload-row">
+            <label class="btn-upload" for="file-input">📷 上傳您的照片 (PNG/JPG)</label>
+            <input type="file" id="file-input" accept="image/*" onchange="handleFileUpload(event)">
+        </div>
+
+        <div class="control-item">
+            <div class="control-label"><span>底色過濾強度</span><span class="control-val" id="val-bg">40</span></div>
+            <input type="range" id="input-bg" min="0" max="150" value="40" oninput="reprocessCurrentImg()">
+        </div>
+
+        <div class="section-title">步驟 2：壁畫位置與縮放</div>
+        <div class="control-item">
+            <div class="control-label"><span>左右位置 X</span><span class="control-val" id="val-posx">0</span></div>
+            <input type="range" id="input-posx" min="-10" max="10" step="0.1" value="0" oninput="updateSubjectTransform()">
+        </div>
+        <div class="control-item">
+            <div class="control-label"><span>上下位置 Y</span><span class="control-val" id="val-posy">3.5</span></div>
+            <input type="range" id="input-posy" min="0.5" max="8" step="0.1" value="3.5" oninput="updateSubjectTransform()">
+        </div>
+        <div class="control-item">
+            <div class="control-label"><span>壁畫大小 Scale</span><span class="control-val" id="val-scale">1.0</span></div>
+            <input type="range" id="input-scale" min="0.3" max="2.5" step="0.1" value="1.0" oninput="updateSubjectTransform()">
+        </div>
+
+        <div class="section-title">步驟 3：3D 陰影與光源控制 (支援 170° 右側大角度)</div>
+        <div class="control-item">
+            <div class="control-label"><span>光源角度 Light Angle</span><span class="control-val" id="val-light">170°</span></div>
+            <input type="range" id="input-light" min="0" max="360" value="170" oninput="updateLight()">
+        </div>
+    </div>
+
+    <!-- 拍立得彈窗 -->
+    <div class="modal-overlay" id="polaroid-modal">
+        <div class="polaroid-card">
+            <div class="polaroid-photo-box" id="polaroid-photo-box"></div>
+            <!-- 拍立得下邊框手寫訊息 -->
+            <input type="text" class="polaroid-input" id="polaroid-text-input" value="Street Dog Art 2026" placeholder="點擊輸入相片訊息...">
+        </div>
+        <div class="modal-btns">
+            <button class="btn-modal" onclick="closeModal()">重拍 ↺</button>
+            <button class="btn-modal" style="background:#10b981;" onclick="downloadPolaroidWithFrame()">💾 儲存相片 (連邊框)</button>
+        </div>
+    </div>
+
+    <script>
+        // 1. 初始化 Three.js 3D 核心場景
+        const container = document.getElementById('webgl-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0b0e);
+
+        // 相機設置
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 4, 15);
+
+        // WebGL 渲染器
+        const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        // OrbitControls 控制器
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2 + 0.05;
+        controls.target.set(0, 3, 0);
+        controls.update();
+
+        // 2. 光源與全角度陰影 (支援 170° 右側大角度長陰影)
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.95);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 50;
+        dirLight.shadow.camera.left = -25;
+        dirLight.shadow.camera.right = 25;
+        dirLight.shadow.camera.top = 25;
+        dirLight.shadow.camera.bottom = -15;
+        dirLight.shadow.bias = -0.0003;
+        scene.add(dirLight);
+
+        // 3. 生成真實街道等級的水泥牆與高精細人行道磚紋理
+        function createCementTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#8f9296';
+            ctx.fillRect(0, 0, 512, 512);
+
+            for(let i=0; i<40000; i++) {
+                ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
+                ctx.fillRect(Math.random()*512, Math.random()*512, 2, 2);
+            }
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        // 全新優化：真實感擬真人行道磚紋理
+        function createRealisticSidewalkTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024; canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            // 底層水泥色
+            ctx.fillStyle = '#4a4d53';
+            ctx.fillRect(0, 0, 1024, 512);
+
+            const cols = 8;
+            const rows = 4;
+            const tileW = 1024 / cols;
+            const tileH = 512 / rows;
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const x = c * tileW;
+                    const y = r * tileH;
+
+                    // 磚塊隨機色階
+                    const shade = 75 + Math.floor(Math.random() * 25);
+                    ctx.fillStyle = `rgb(${shade}, ${shade + 3}, ${shade + 8})`;
+                    ctx.fillRect(x + 3, y + 3, tileW - 6, tileH - 6);
+
+                    // 磚塊表面磨砂質感
+                    for (let k = 0; k < 200; k++) {
+                        ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.08)';
+                        ctx.fillRect(x + 3 + Math.random() * (tileW - 6), y + 3 + Math.random() * (tileH - 6), 2, 2);
+                    }
+
+                    // 磚塊邊緣陰影與凹凸溝縫
+                    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                    ctx.fillRect(x, y, tileW, 3);
+                    ctx.fillRect(x, y, 3, tileH);
+
+                    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+                    ctx.fillRect(x + 3, y + tileH - 4, tileW - 6, 2);
+                    ctx.fillRect(x + tileW - 4, y + 3, 2, tileH - 6);
+                }
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(4, 1.5);
+            return texture;
+        }
+
+        // 4. 構建 L 型立體牆角
+        const wallMat = new THREE.MeshStandardMaterial({ map: createCementTexture(), roughness: 0.85, metalness: 0.1 });
+        const wallGeo = new THREE.PlaneGeometry(30, 10);
+        const wallMesh = new THREE.Mesh(wallGeo, wallMat);
+        wallMesh.position.set(0, 5, 0);
+        wallMesh.receiveShadow = true;
+        scene.add(wallMesh);
+
+        // 人行道寬度 7.5
+        const sidewalkMat = new THREE.MeshStandardMaterial({ map: createRealisticSidewalkTexture(), roughness: 0.7 });
+        const sidewalkGeo = new THREE.PlaneGeometry(30, 7.5);
+        const sidewalkMesh = new THREE.Mesh(sidewalkGeo, sidewalkMat);
+        sidewalkMesh.rotation.x = -Math.PI / 2;
+        sidewalkMesh.position.set(0, 0, 3.75);
+        sidewalkMesh.receiveShadow = true;
+        scene.add(sidewalkMesh);
+
+        // 5. 去背景與軀體輪廓陰影 (CustomDepthMaterial)
+        let subjectMesh = null;
+        let loadedImgObj = null;
+        let currentPhotoDataUrl = "";
+
+        function removeOuterBackground(imgObj, threshold) {
+            const c = document.createElement('canvas');
+            const w = imgObj.width;
+            const h = imgObj.height;
+            c.width = w; c.height = h;
+            const cCtx = c.getContext('2d');
+            cCtx.drawImage(imgObj, 0, 0);
+
+            if (threshold === 0) return c.toDataURL();
+
+            const imgData = cCtx.getImageData(0, 0, w, h);
+            const data = imgData.data;
+
+            const bgR = data[0], bgG = data[1], bgB = data[2];
+
+            const visited = new Uint8Array(w * h);
+            const queue = [0, w - 1, (h - 1) * w, h * w - 1];
+            queue.forEach(idx => visited[idx] = 1);
+
+            while (queue.length > 0) {
+                const curr = queue.shift();
+                const px = curr % w;
+                const py = Math.floor(curr / w);
+                const i = curr * 4;
+
+                const r = data[i], g = data[i + 1], b = data[i + 2];
+                const dist = Math.sqrt((r - bgR)**2 + (g - bgG)**2 + (b - bgB)**2);
+
+                if (dist <= threshold) {
+                    data[i] = 0; data[i + 1] = 0; data[i + 2] = 0; data[i + 3] = 0;
+
+                    const neighbors = [];
+                    if (px > 0) neighbors.push(curr - 1);
+                    if (px < w - 1) neighbors.push(curr + 1);
+                    if (py > 0) neighbors.push(curr - w);
+                    if (py < h - 1) neighbors.push(curr + w);
+
+                    for (let n of neighbors) {
+                        if (!visited[n]) {
+                            visited[n] = 1;
+                            queue.push(n);
+                        }
+                    }
+                }
+            }
+
+            cCtx.putImageData(imgData, 0, 0);
+            return c.toDataURL();
+        }
+
+        function loadSubjectImage(src) {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+                loadedImgObj = img;
+                reprocessCurrentImg();
+            };
+            img.src = src;
+        }
+
+        function reprocessCurrentImg() {
+            if (!loadedImgObj) return;
+
+            const threshold = parseInt(document.getElementById('input-bg').value);
+            document.getElementById('val-bg').textContent = threshold;
+
+            const processedSrc = removeOuterBackground(loadedImgObj, threshold);
+
+            new THREE.TextureLoader().load(processedSrc, (tex) => {
+                if (subjectMesh) scene.remove(subjectMesh);
+
+                const aspect = loadedImgObj.width / loadedImgObj.height;
+                const planeHeight = 4.5;
+                const planeWidth = planeHeight * aspect;
+
+                const geo = new THREE.PlaneGeometry(planeWidth, planeHeight);
+                const mat = new THREE.MeshStandardMaterial({
+                    map: tex,
+                    transparent: true,
+                    alphaTest: 0.1,
+                    side: THREE.DoubleSide
+                });
+
+                subjectMesh = new THREE.Mesh(geo, mat);
+                subjectMesh.position.set(0, 3.2, 0.08);
+
+                // 精準依據軀體 Alpha 輪廓投射陰影
+                subjectMesh.customDepthMaterial = new THREE.MeshDepthMaterial({
+                    depthPacking: THREE.RGBADepthPacking,
+                    map: tex,
+                    alphaTest: 0.1
+                });
+
+                subjectMesh.castShadow = true;
+                scene.add(subjectMesh);
+
+                updateSubjectTransform();
+            });
+        }
+
+        function updateSubjectTransform() {
+            if (!subjectMesh) return;
+            const px = parseFloat(document.getElementById('input-posx').value);
+            const py = parseFloat(document.getElementById('input-posy').value);
+            const sc = parseFloat(document.getElementById('input-scale').value);
+
+            document.getElementById('val-posx').textContent = px;
+            document.getElementById('val-posy').textContent = py;
+            document.getElementById('val-scale').textContent = sc.toFixed(1);
+
+            subjectMesh.position.x = px;
+            subjectMesh.position.y = py;
+            subjectMesh.scale.set(sc, sc, 1);
+        }
+
+        function updateLight() {
+            const angleDeg = parseFloat(document.getElementById('input-light').value);
+            document.getElementById('val-light').textContent = `${angleDeg}°`;
+            const rad = (angleDeg * Math.PI) / 180;
+
+            dirLight.position.x = Math.cos(rad) * 18;
+            dirLight.position.z = Math.abs(Math.sin(rad)) * 15 + 4;
+            dirLight.position.y = 14;
+        }
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (evt) => loadSubjectImage(evt.target.result);
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function resetCamera() {
+            camera.position.set(0, 4, 15);
+            controls.target.set(0, 3, 0);
+            controls.update();
+        }
+
+        function openPanel() { document.getElementById('control-panel').classList.remove('collapsed'); }
+        function closePanel() { document.getElementById('control-panel').classList.add('collapsed'); }
+
+        function takePolaroid() {
+            closePanel();
+            renderer.render(scene, camera);
+            currentPhotoDataUrl = renderer.domElement.toDataURL('image/png');
+
+            const box = document.getElementById('polaroid-photo-box');
+            box.innerHTML = '';
+
+            const img = document.createElement('img');
+            img.src = currentPhotoDataUrl;
+            box.appendChild(img);
+
+            document.getElementById('polaroid-modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('polaroid-modal').classList.remove('active');
+        }
+
+        // 6. 核心功能：跨平台（包含 iOS / Android / Desktop）存檔修復（Blob 下載）
+        function downloadPolaroidWithFrame() {
+            const exportCanvas = document.createElement('canvas');
+            const ctx = exportCanvas.getContext('2d');
+
+            const w = 600;
+            const h = 720;
+            exportCanvas.width = w;
+            exportCanvas.height = h;
+
+            // 1. 白色邊框
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, w, h);
+
+            // 2. 拍攝照片渲染
+            const photoImg = new Image();
+            photoImg.onload = () => {
+                ctx.drawImage(photoImg, 30, 30, 540, 540);
+
+                // 3. 繪製手寫文字訊息
+                const messageText = document.getElementById('polaroid-text-input').value || "Street Art 2026";
+                ctx.fillStyle = '#222222';
+                ctx.font = 'bold 30px "Courier New", Courier, monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(messageText, w / 2, 640);
+
+                // 4. 採用相容性最強的 Blob Stream 下載法
+                exportCanvas.toBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `polaroid_${Date.now()}.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                }, 'image/png');
+            };
+            photoImg.src = currentPhotoDataUrl;
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // 預設載入與設定
+        loadSubjectImage("https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=600&q=80");
+        updateLight();
+        animate();
+    </script>
+</body>
+</html>
