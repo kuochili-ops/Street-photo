@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D 真實街景 L型壁畫與多風格拍立得生成器</title>
+    <title>3D 真實街景 L型壁畫塗鴉與多風格拍立得生成器</title>
     <!-- 引入 Three.js 3D 引擎與 OrbitControls 控制器 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -43,7 +43,7 @@
             top: 16px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0,0,0,0.75);
+            background: rgba(0,0,0,0.8);
             backdrop-filter: blur(8px);
             padding: 8px 18px;
             border-radius: 20px;
@@ -53,9 +53,10 @@
             z-index: 20;
             text-align: center;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
         }
 
-        /* 底部操作按鈕 */
+        /* 底部操作按鈕區 */
         .action-bar {
             position: absolute;
             bottom: 20px;
@@ -63,9 +64,12 @@
             right: 0;
             display: flex;
             justify-content: center;
+            align-items: center;
             gap: 10px;
             z-index: 30;
             pointer-events: none;
+            padding: 0 16px;
+            flex-wrap: wrap;
         }
 
         .btn-action {
@@ -80,11 +84,105 @@
             font-weight: 600;
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-action.active {
+            background: rgba(236, 72, 153, 0.85);
+            border-color: #f472b6;
+            box-shadow: 0 0 12px rgba(236, 72, 153, 0.6);
         }
 
         .btn-shutter {
             background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
             border: none;
+        }
+
+        /* 外部牆面噴漆顏色與筆刷選擇器 */
+        .color-picker-wrapper {
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            padding: 4px 12px;
+            border-radius: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+
+        .color-picker-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #ddd;
+        }
+
+        .color-picker-input {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 26px;
+            height: 26px;
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+
+        .color-picker-input::-webkit-color-swatch {
+            border: 2px solid #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 4px rgba(0,0,0,0.5);
+        }
+
+        .color-picker-input::-moz-color-swatch {
+            border: 2px solid #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 4px rgba(0,0,0,0.5);
+        }
+
+        .btn-clear-graffiti {
+            background: rgba(239, 68, 68, 0.25);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+            color: #fca5a5;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+
+        /* Stencil 選擇工具列 */
+        .stencil-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .btn-stencil {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #eee;
+            padding: 8px 4px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .btn-stencil.active {
+            background: #ec4899;
+            color: #fff;
+            border-color: #f472b6;
+            box-shadow: 0 0 8px rgba(236, 72, 153, 0.5);
         }
 
         /* 控制選單面板 */
@@ -127,34 +225,6 @@
         .upload-row { display: flex; gap: 8px; margin-bottom: 10px; }
         .btn-upload { flex: 1; background: #4f46e5; color: white; padding: 10px; border-radius: 10px; text-align: center; font-size: 13px; font-weight: 600; cursor: pointer; }
         #file-input { display: none; }
-
-        /* 風格選擇按鈕列 */
-        .style-options {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-
-        .btn-style {
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.15);
-            color: #ccc;
-            padding: 8px 4px;
-            border-radius: 8px;
-            font-size: 11px;
-            font-weight: 600;
-            cursor: pointer;
-            text-align: center;
-            transition: all 0.2s ease;
-        }
-
-        .btn-style.active {
-            background: #6366f1;
-            color: white;
-            border-color: #818cf8;
-            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
-        }
 
         .control-item { margin-bottom: 10px; }
         .control-label { display: flex; justify-content: space-between; font-size: 11px; color: #ccc; margin-bottom: 2px; }
@@ -230,60 +300,73 @@
 
     <!-- 3D 舞台容器 -->
     <div id="webgl-container">
-        <div class="hint-badge">
-            🖐️ 單指滑動旋轉 3D 場景 | 雙指捏合/滾輪放大縮小 (Zoom)
+        <div class="hint-badge" id="hint-text">
+            點擊「開啟噴漆」可在牆面上塗鴉 | 點擊主體圖：單指移動 / 雙指旋轉縮放 | 點擊空白處旋轉 3D 場景
         </div>
     </div>
 
-    <!-- 底部操作按鈕 -->
+    <!-- 畫面下方獨立操作區 -->
     <div class="action-bar">
-        <button class="btn-action" onclick="resetCamera()">🎯 鏡頭復位</button>
-        <button class="btn-action" onclick="openPanel()">⚙️ 調整參數</button>
-        <button class="btn-action btn-shutter" onclick="takePolaroid()">📸 拍攝拍立得</button>
+        <button class="btn-action" onclick="resetCamera()">🎯 復位</button>
+        
+        <!-- 噴漆啟動切換鍵 -->
+        <button class="btn-action" id="btn-toggle-graffiti" onclick="toggleGraffitiMode()">
+            🎨 牆面噴漆: <span id="graffiti-status-text">關閉</span>
+        </button>
+
+        <!-- 牆面噴漆色彩選擇與清除區 -->
+        <div class="color-picker-wrapper" id="color-picker-container" style="opacity: 0.4; pointer-events: none;">
+            <span class="color-picker-label">漆色</span>
+            <input type="color" id="spray-color-picker" class="color-picker-input" value="#ff2a6d" onchange="updateSprayColor(this.value)">
+            <button class="btn-clear-graffiti" onclick="clearWallGraffiti()">🧹 清空塗鴉</button>
+        </div>
+
+        <button class="btn-action" onclick="openPanel()">⚙️ 參數/Stencil</button>
+        <button class="btn-action btn-shutter" onclick="takePolaroid()">📸 拍立得</button>
     </div>
 
     <!-- 控制選單面板 -->
     <div class="control-panel collapsed" id="control-panel">
         <div class="panel-header">
-            <div class="panel-title">🎨 壁畫藝術風格與光影設定</div>
+            <div class="panel-title">🎨 壁畫噴漆、Stencil 圖章與光影</div>
             <button class="btn-close" onclick="closePanel()">完成 ✕</button>
         </div>
 
-        <div class="section-title">步驟 1：主體照片上傳</div>
+        <div class="section-title">步驟 1：主體照片上傳與去背</div>
         <div class="upload-row">
             <label class="btn-upload" for="file-input">📷 上傳您的照片 (PNG/JPG)</label>
             <input type="file" id="file-input" accept="image/*" onchange="handleFileUpload(event)">
         </div>
-
-        <div class="section-title">步驟 2：主體藝術風格選擇</div>
-        <div class="style-options">
-            <button class="btn-style active" onclick="setArtStyle('original', this)">📷 原圖照片</button>
-            <button class="btn-style" onclick="setArtStyle('comic', this)">🎨 美式漫畫</button>
-            <button class="btn-style" onclick="setArtStyle('graffiti', this)">🖌️ 街頭塗鴉</button>
-            <button class="btn-style" onclick="setArtStyle('cyberpunk', this)">⚡ 賽博朋克</button>
-            <button class="btn-style" onclick="setArtStyle('sketch', this)">✏️ 黑白素描</button>
-        </div>
-
         <div class="control-item">
-            <div class="control-label"><span>底色過濾強度</span><span class="control-val" id="val-bg">40</span></div>
+            <div class="control-label"><span>主體底色過濾強度 (去背)</span><span class="control-val" id="val-bg">40</span></div>
             <input type="range" id="input-bg" min="0" max="150" value="40" oninput="reprocessCurrentImg()">
         </div>
 
-        <div class="section-title">步驟 3：壁畫位置與縮放</div>
-        <div class="control-item">
-            <div class="control-label"><span>左右位置 X</span><span class="control-val" id="val-posx">0</span></div>
-            <input type="range" id="input-posx" min="-10" max="10" step="0.1" value="0" oninput="updateSubjectTransform()">
-        </div>
-        <div class="control-item">
-            <div class="control-label"><span>上下位置 Y</span><span class="control-val" id="val-posy">3.5</span></div>
-            <input type="range" id="input-posy" min="0.5" max="8" step="0.1" value="3.5" oninput="updateSubjectTransform()">
-        </div>
-        <div class="control-item">
-            <div class="control-label"><span>壁畫大小 Scale</span><span class="control-val" id="val-scale">1.0</span></div>
-            <input type="range" id="input-scale" min="0.3" max="2.5" step="0.1" value="1.0" oninput="updateSubjectTransform()">
+        <div class="section-title">步驟 2：塗鴉 Stencil 噴印模式選擇</div>
+        <div style="background: rgba(99, 102, 241, 0.1); padding: 12px; border-radius: 12px; margin-bottom: 12px; border: 1px solid rgba(99, 102, 241, 0.25);">
+            <div class="control-label" style="margin-bottom:6px;"><span>選擇噴漆模式 / Stencil 模板</span></div>
+            <div class="stencil-bar">
+                <button class="btn-stencil active" onclick="setBrushMode('brush', this)">🖌️ 自由筆刷</button>
+                <button class="btn-stencil" onclick="setBrushMode('stencil_wild', this)">🔤 WILD</button>
+                <button class="btn-stencil" onclick="setBrushMode('stencil_street', this)">🔤 STREET</button>
+                <button class="btn-stencil" onclick="setBrushMode('stencil_star', this)">⭐ 塗鴉星星</button>
+                <button class="btn-stencil" onclick="setBrushMode('stencil_crown', this)">👑 皇冠圖章</button>
+                <button class="btn-stencil" onclick="setBrushMode('stencil_skull', this)">💀 骷髏圖章</button>
+                <button class="btn-stencil" onclick="setBrushMode('stencil_dog', this)">𓃥 白六圖章</button>
+                <button class="btn-stencil" onclick="setBrushMode('stencil_heart', this)">❤️ 噴漆心形</button>
+            </div>
+
+            <div class="control-item" style="margin-top:10px;">
+                <div class="control-label"><span>噴漆筆刷 / Stencil 尺寸</span><span class="control-val" id="val-brush-size">28</span></div>
+                <input type="range" id="input-brush-size" min="8" max="120" value="28" oninput="document.getElementById('val-brush-size').textContent = this.value">
+            </div>
+            <div class="control-item">
+                <div class="control-label"><span>噴霧顆粒擴散度 Flow</span><span class="control-val" id="val-brush-flow">0.45</span></div>
+                <input type="range" id="input-brush-flow" min="0.1" max="1.0" step="0.05" value="0.45" oninput="document.getElementById('val-brush-flow').textContent = this.value">
+            </div>
         </div>
 
-        <div class="section-title">步驟 4：3D 陰影與光源控制 (支援 170° 右側大角度)</div>
+        <div class="section-title">步驟 3：3D 陰影與光源控制 (支援 170° 右側大角度)</div>
         <div class="control-item">
             <div class="control-label"><span>光源角度 Light Angle</span><span class="control-val" id="val-light">170°</span></div>
             <input type="range" id="input-light" min="0" max="360" value="170" oninput="updateLight()">
@@ -329,7 +412,7 @@
         controls.target.set(0, 3, 0);
         controls.update();
 
-        // 2. 光源與全角度陰影 (支援 170° 右側大角度長陰影)
+        // 2. 光源與全角度陰影
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
         scene.add(ambientLight);
 
@@ -346,20 +429,25 @@
         dirLight.shadow.bias = -0.0003;
         scene.add(dirLight);
 
-        // 3. 水泥牆與高精細人行道磚紋理
-        function createCementTexture() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 512; canvas.height = 512;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#8f9296';
-            ctx.fillRect(0, 0, 512, 512);
+        // 3. 牆面 2D Canvas 塗鴉畫布
+        const wallCanvas = document.createElement('canvas');
+        wallCanvas.width = 2048;
+        wallCanvas.height = 1024;
+        const wallCtx = wallCanvas.getContext('2d');
+        let wallTexture = null;
 
-            for(let i=0; i<40000; i++) {
-                ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
-                ctx.fillRect(Math.random()*512, Math.random()*512, 2, 2);
+        function drawCementBackground() {
+            wallCtx.fillStyle = '#8f9296';
+            wallCtx.fillRect(0, 0, wallCanvas.width, wallCanvas.height);
+
+            for (let i = 0; i < 150000; i++) {
+                wallCtx.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
+                wallCtx.fillRect(Math.random() * wallCanvas.width, Math.random() * wallCanvas.height, 2, 2);
             }
-            return new THREE.CanvasTexture(canvas);
         }
+        drawCementBackground();
+
+        wallTexture = new THREE.CanvasTexture(wallCanvas);
 
         function createRealisticSidewalkTexture() {
             const canvas = document.createElement('canvas');
@@ -405,8 +493,8 @@
             return texture;
         }
 
-        // 4. 構建 L 型立體牆角
-        const wallMat = new THREE.MeshStandardMaterial({ map: createCementTexture(), roughness: 0.85, metalness: 0.1 });
+        // 4. 構建 L 型立體牆角與地面
+        const wallMat = new THREE.MeshStandardMaterial({ map: wallTexture, roughness: 0.85, metalness: 0.1 });
         const wallGeo = new THREE.PlaneGeometry(30, 10);
         const wallMesh = new THREE.Mesh(wallGeo, wallMat);
         wallMesh.position.set(0, 5, 0);
@@ -421,17 +509,61 @@
         sidewalkMesh.receiveShadow = true;
         scene.add(sidewalkMesh);
 
-        // 5. 核心關鍵修復：先去背景保持透明，再處理藝術風格（風格圖 100% 透明背景）
+        // 5. 主體貼圖與去背處理
         let subjectMesh = null;
         let loadedImgObj = null;
-        let currentStyle = 'original';
         let currentPhotoDataUrl = "";
+        let isGraffitiPaintingMode = false;
+        let selectedSprayColor = "#ff2a6d";
+        let activeBrushMode = 'brush'; // 'brush' 或各種 stencil 種類
 
-        function setArtStyle(styleName, btnElem) {
-            currentStyle = styleName;
-            document.querySelectorAll('.btn-style').forEach(btn => btn.classList.remove('active'));
+        const subjectTransform = {
+            position: new THREE.Vector3(0, 3.2, 0.08),
+            scale: new THREE.Vector3(1, 1, 1),
+            rotationZ: 0
+        };
+
+        function toggleGraffitiMode() {
+            isGraffitiPaintingMode = !isGraffitiPaintingMode;
+            const btn = document.getElementById('btn-toggle-graffiti');
+            const statusText = document.getElementById('graffiti-status-text');
+            const colorPickerContainer = document.getElementById('color-picker-container');
+
+            if (isGraffitiPaintingMode) {
+                btn.classList.add('active');
+                statusText.textContent = "開啟中";
+                colorPickerContainer.style.opacity = "1";
+                colorPickerContainer.style.pointerEvents = "auto";
+                controls.enabled = false;
+                
+                isSelected = false;
+                hintText.innerHTML = "🎨 牆面噴漆模式：點擊/拖曳噴印 Stencil 塗鴉 | 點擊切換鍵離開";
+                hintText.style.background = "rgba(236, 72, 153, 0.9)";
+            } else {
+                btn.classList.remove('active');
+                statusText.textContent = "關閉";
+                colorPickerContainer.style.opacity = "0.4";
+                colorPickerContainer.style.pointerEvents = "none";
+                controls.enabled = true;
+
+                hintText.innerHTML = "點擊選取主體圖：單指移動 / 雙指旋轉縮放 | 點擊空白處旋轉 3D 場景";
+                hintText.style.background = "rgba(0, 0, 0, 0.8)";
+            }
+        }
+
+        function setBrushMode(mode, btnElem) {
+            activeBrushMode = mode;
+            document.querySelectorAll('.btn-stencil').forEach(btn => btn.classList.remove('active'));
             if (btnElem) btnElem.classList.add('active');
-            reprocessCurrentImg();
+        }
+
+        function updateSprayColor(colorHex) {
+            selectedSprayColor = colorHex;
+        }
+
+        function clearWallGraffiti() {
+            drawCementBackground();
+            wallTexture.needsUpdate = true;
         }
 
         function removeOuterBackground(imgObj, threshold) {
@@ -445,7 +577,6 @@
             const imgData = cCtx.getImageData(0, 0, w, h);
             const data = imgData.data;
 
-            // 第一步：精準去除外圍背景底色（BFS 連通演算法）
             if (threshold > 0) {
                 const bgR = data[0], bgG = data[1], bgB = data[2];
                 const visited = new Uint8Array(w * h);
@@ -475,45 +606,6 @@
                                 visited[n] = 1;
                                 queue.push(n);
                             }
-                        }
-                    }
-                }
-            }
-
-            // 第二步：僅對非透明主體像素套用藝術濾鏡（背景保持 100% 透明，決不填色！）
-            if (currentStyle !== 'original') {
-                for (let i = 0; i < data.length; i += 4) {
-                    // 只處理 Alpha > 10 的主體像素
-                    if (data[i + 3] > 10) {
-                        let r = data[i], g = data[i + 1], b = data[i + 2];
-
-                        if (currentStyle === 'comic') { // 美式漫畫風 (高對比色塊 + 強筆觸)
-                            let v = (r + g + b) / 3;
-                            if (v < 65) {
-                                data[i] = 20; data[i + 1] = 20; data[i + 2] = 20;
-                            } else {
-                                data[i] = Math.min(255, r * 1.35);
-                                data[i + 1] = Math.min(255, g * 1.2);
-                                data[i + 2] = Math.min(255, b * 1.1);
-                            }
-
-                        } else if (currentStyle === 'graffiti') { // 街頭塗鴉噴漆風
-                            data[i] = Math.min(255, r * 1.4);
-                            data[i + 1] = Math.min(255, g * 1.25);
-                            if (Math.random() < 0.06) data[i + 3] = 0; // 細微噴霧空隙
-
-                        } else if (currentStyle === 'cyberpunk') { // 賽博朋克霓虹風
-                            let gray = (r + g + b) / 3;
-                            if (gray > 128) {
-                                data[i] = 255; data[i + 1] = 0; data[i + 2] = 180;
-                            } else {
-                                data[i] = 0; data[i + 1] = 220; data[i + 2] = 255;
-                            }
-
-                        } else if (currentStyle === 'sketch') { // 黑白手繪素描風
-                            let gray = 0.299 * r + 0.587 * g + 0.114 * b;
-                            gray = gray < 90 ? gray * 0.4 : Math.min(255, gray * 1.25);
-                            data[i] = gray; data[i + 1] = gray; data[i + 2] = gray;
                         }
                     }
                 }
@@ -557,9 +649,11 @@
                 });
 
                 subjectMesh = new THREE.Mesh(geo, mat);
-                subjectMesh.position.set(0, 3.2, 0.08);
+                
+                subjectMesh.position.copy(subjectTransform.position);
+                subjectMesh.scale.copy(subjectTransform.scale);
+                subjectMesh.rotation.z = subjectTransform.rotationZ;
 
-                // 精準依據軀體 Alpha 輪廓投射陰影
                 subjectMesh.customDepthMaterial = new THREE.MeshDepthMaterial({
                     depthPacking: THREE.RGBADepthPacking,
                     map: tex,
@@ -568,24 +662,7 @@
 
                 subjectMesh.castShadow = true;
                 scene.add(subjectMesh);
-
-                updateSubjectTransform();
             });
-        }
-
-        function updateSubjectTransform() {
-            if (!subjectMesh) return;
-            const px = parseFloat(document.getElementById('input-posx').value);
-            const py = parseFloat(document.getElementById('input-posy').value);
-            const sc = parseFloat(document.getElementById('input-scale').value);
-
-            document.getElementById('val-posx').textContent = px;
-            document.getElementById('val-posy').textContent = py;
-            document.getElementById('val-scale').textContent = sc.toFixed(1);
-
-            subjectMesh.position.x = px;
-            subjectMesh.position.y = py;
-            subjectMesh.scale.set(sc, sc, 1);
         }
 
         function updateLight() {
@@ -616,6 +693,282 @@
         function openPanel() { document.getElementById('control-panel').classList.remove('collapsed'); }
         function closePanel() { document.getElementById('control-panel').classList.add('collapsed'); }
 
+        // 6. Stencil 模板圖章繪製引擎
+        function drawStencilPattern(ctx, cx, cy, type, size) {
+            ctx.save();
+            ctx.translate(cx, cy);
+
+            const scale = size / 20;
+
+            if (type === 'stencil_wild' || type === 'stencil_street') {
+                const text = type === 'stencil_wild' ? 'WILD' : 'STREET';
+                ctx.font = `900 ${Math.floor(size * 1.5)}px Impact, "Arial Black", sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                // 噴漆陰影疊加與霧化邊界
+                ctx.shadowColor = selectedSprayColor;
+                ctx.shadowBlur = 12;
+                ctx.fillStyle = selectedSprayColor;
+                ctx.fillText(text, 0, 0);
+
+                // 粗糙邊緣過渡點
+                for (let i = 0; i < 40; i++) {
+                    const rx = (Math.random() - 0.5) * size * 3;
+                    const ry = (Math.random() - 0.5) * size;
+                    ctx.globalAlpha = Math.random() * 0.4;
+                    ctx.beginPath();
+                    ctx.arc(rx, ry, Math.random() * 2 + 1, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+            } else if (type === 'stencil_star') {
+                // 五角星星
+                ctx.fillStyle = selectedSprayColor;
+                ctx.shadowColor = selectedSprayColor;
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    ctx.lineTo(Math.cos((18 + i * 72) * Math.PI / 180) * size * 1.2, -Math.sin((18 + i * 72) * Math.PI / 180) * size * 1.2);
+                    ctx.lineTo(Math.cos((54 + i * 72) * Math.PI / 180) * size * 0.5, -Math.sin((54 + i * 72) * Math.PI / 180) * size * 0.5);
+                }
+                ctx.closePath();
+                ctx.fill();
+
+            } else if (type === 'stencil_crown') {
+                // 塗鴉皇冠
+                ctx.fillStyle = selectedSprayColor;
+                ctx.shadowColor = selectedSprayColor;
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                ctx.moveTo(-size, size * 0.6);
+                ctx.lineTo(-size * 1.1, -size * 0.6);
+                ctx.lineTo(-size * 0.4, 0);
+                ctx.lineTo(0, -size * 0.9);
+                ctx.lineTo(size * 0.4, 0);
+                ctx.lineTo(size * 1.1, -size * 0.6);
+                ctx.lineTo(size, size * 0.6);
+                ctx.closePath();
+                ctx.fill();
+
+            } else if (type === 'stencil_skull') {
+                // 骷髏頭
+                ctx.fillStyle = selectedSprayColor;
+                ctx.shadowColor = selectedSprayColor;
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                ctx.arc(0, -size * 0.3, size * 0.8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillRect(-size * 0.5, size * 0.2, size, size * 0.6);
+
+                // 眼眶切空
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.beginPath();
+                ctx.arc(-size * 0.3, -size * 0.3, size * 0.25, 0, Math.PI * 2);
+                ctx.arc(size * 0.3, -size * 0.3, size * 0.25, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalCompositeOperation = 'source-over';
+
+            } else if (type === 'stencil_dog') {
+                // 𓃥 白六文字圖章
+                ctx.font = `bold ${Math.floor(size * 2.2)}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = selectedSprayColor;
+                ctx.shadowColor = selectedSprayColor;
+                ctx.shadowBlur = 10;
+                ctx.fillText("𓃥", 0, 0);
+
+            } else if (type === 'stencil_heart') {
+                // 心形噴漆
+                ctx.fillStyle = selectedSprayColor;
+                ctx.shadowColor = selectedSprayColor;
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.moveTo(0, size * 0.8);
+                ctx.bezierCurveTo(-size * 1.3, -size * 0.2, -size * 0.8, -size * 1.2, 0, -size * 0.5);
+                ctx.bezierCurveTo(size * 0.8, -size * 1.2, size * 1.3, -size * 0.2, 0, size * 0.8);
+                ctx.fill();
+            }
+
+            // 隨機濺灑漆滴 (Drips)
+            const dripLen = Math.floor(Math.random() * size + 15);
+            ctx.fillStyle = selectedSprayColor;
+            ctx.globalAlpha = 0.85;
+            ctx.fillRect((Math.random() - 0.5) * size, size * 0.5, Math.random() * 3 + 1, dripLen);
+
+            ctx.restore();
+        }
+
+        // 7. 牆面噴漆塗鴉繪製與投射
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const planeIntersect = new THREE.Plane(new THREE.Vector3(0, 0, 1), -0.08);
+        const intersectionPoint = new THREE.Vector3();
+
+        let isSelected = false;
+        let isDragging = false;
+        let isSpraying = false;
+        let initialTouchDistance = 0;
+        let initialTouchAngle = 0;
+        let initialMeshScale = new THREE.Vector3();
+        let initialMeshRotationZ = 0;
+        let dragOffset = new THREE.Vector3();
+
+        const hintText = document.getElementById('hint-text');
+
+        function updateRaycaster(clientX, clientY) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+        }
+
+        function paintOnWall(uv) {
+            const canvasX = uv.x * wallCanvas.width;
+            const canvasY = (1 - uv.y) * wallCanvas.height;
+
+            const brushSize = parseInt(document.getElementById('input-brush-size').value);
+            const brushFlow = parseFloat(document.getElementById('input-brush-flow').value);
+
+            if (activeBrushMode === 'brush') {
+                // 自由筆刷
+                const numParticles = Math.floor(brushSize * 10 * brushFlow);
+                for (let i = 0; i < numParticles; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const radius = Math.random() * brushSize;
+                    const px = canvasX + Math.cos(angle) * radius;
+                    const py = canvasY + Math.sin(angle) * radius;
+
+                    const alpha = (1 - (radius / brushSize)) * 0.15;
+                    
+                    wallCtx.fillStyle = selectedSprayColor;
+                    wallCtx.globalAlpha = alpha;
+                    wallCtx.beginPath();
+                    wallCtx.arc(px, py, Math.random() * 2.5 + 0.5, 0, Math.PI * 2);
+                    wallCtx.fill();
+                }
+                wallCtx.globalAlpha = 1.0;
+            } else {
+                // Stencil 模板圖章點擊噴印
+                drawStencilPattern(wallCtx, canvasX, canvasY, activeBrushMode, brushSize);
+            }
+
+            wallTexture.needsUpdate = true;
+        }
+
+        window.addEventListener('pointerdown', (e) => {
+            if (e.target.closest('.action-bar') || e.target.closest('.control-panel') || e.target.closest('.modal-overlay')) return;
+
+            updateRaycaster(e.clientX, e.clientY);
+
+            if (isGraffitiPaintingMode) {
+                const wallIntersects = raycaster.intersectObject(wallMesh);
+                if (wallIntersects.length > 0) {
+                    isSpraying = true;
+                    paintOnWall(wallIntersects[0].uv);
+                }
+                return;
+            }
+
+            if (subjectMesh) {
+                const intersects = raycaster.intersectObject(subjectMesh);
+                if (intersects.length > 0) {
+                    isSelected = true;
+                    isDragging = true;
+                    controls.enabled = false;
+
+                    raycaster.ray.intersectPlane(planeIntersect, intersectionPoint);
+                    dragOffset.subVectors(subjectMesh.position, intersectionPoint);
+
+                    hintText.innerHTML = "🎯 已選取主體：單指拖曳移動 | 雙指捏合/旋轉 | 滾輪調整大小";
+                    hintText.style.background = "rgba(99, 102, 241, 0.9)";
+                    return;
+                }
+            }
+
+            isSelected = false;
+            isDragging = false;
+            controls.enabled = true;
+            hintText.innerHTML = "點擊選取主體圖：單指移動 / 雙指旋轉縮放 | 點擊空白處旋轉 3D 場景";
+            hintText.style.background = "rgba(0, 0, 0, 0.8)";
+        });
+
+        window.addEventListener('pointermove', (e) => {
+            updateRaycaster(e.clientX, e.clientY);
+
+            if (isGraffitiPaintingMode && isSpraying) {
+                const wallIntersects = raycaster.intersectObject(wallMesh);
+                if (wallIntersects.length > 0) {
+                    if (activeBrushMode === 'brush') {
+                        paintOnWall(wallIntersects[0].uv);
+                    }
+                }
+            } else if (isDragging && isSelected && subjectMesh) {
+                if (raycaster.ray.intersectPlane(planeIntersect, intersectionPoint)) {
+                    subjectMesh.position.copy(intersectionPoint.add(dragOffset));
+                    subjectMesh.position.x = Math.max(-12, Math.min(12, subjectMesh.position.x));
+                    subjectMesh.position.y = Math.max(1.0, Math.min(8.5, subjectMesh.position.y));
+                    subjectMesh.position.z = 0.08;
+                    
+                    subjectTransform.position.copy(subjectMesh.position);
+                }
+            }
+        });
+
+        window.addEventListener('pointerup', () => {
+            isDragging = false;
+            isSpraying = false;
+        });
+
+        window.addEventListener('wheel', (e) => {
+            if (isSelected && subjectMesh && !isGraffitiPaintingMode) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? 0.93 : 1.07;
+                const newScale = subjectMesh.scale.x * delta;
+                if (newScale >= 0.3 && newScale <= 3.0) {
+                    subjectMesh.scale.set(newScale, newScale, 1);
+                    subjectTransform.scale.copy(subjectMesh.scale);
+                }
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchstart', (e) => {
+            if (isSelected && subjectMesh && !isGraffitiPaintingMode && e.touches.length === 2) {
+                isDragging = false;
+                controls.enabled = false;
+
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                initialTouchDistance = Math.hypot(dx, dy);
+                initialTouchAngle = Math.atan2(dy, dx);
+
+                initialMeshScale.copy(subjectMesh.scale);
+                initialMeshRotationZ = subjectMesh.rotation.z;
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchmove', (e) => {
+            if (isSelected && subjectMesh && !isGraffitiPaintingMode && e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                
+                const currentDistance = Math.hypot(dx, dy);
+                if (initialTouchDistance > 0) {
+                    const factor = currentDistance / initialTouchDistance;
+                    const targetScale = Math.max(0.3, Math.min(3.0, initialMeshScale.x * factor));
+                    subjectMesh.scale.set(targetScale, targetScale, 1);
+                    subjectTransform.scale.copy(subjectMesh.scale);
+                }
+
+                const currentAngle = Math.atan2(dy, dx);
+                const angleDiff = currentAngle - initialTouchAngle;
+                subjectMesh.rotation.z = initialMeshRotationZ + angleDiff;
+                subjectTransform.rotationZ = subjectMesh.rotation.z;
+            }
+        }, { passive: true });
+
+        // 8. 拍攝與拍立得功能
         function takePolaroid() {
             closePanel();
             renderer.render(scene, camera);
@@ -635,7 +988,6 @@
             document.getElementById('polaroid-modal').classList.remove('active');
         }
 
-        // 6. 等比例 Cover 裁切繪製（解決拍立得相片壓扁與存檔問題）
         function downloadPolaroidWithFrame() {
             const exportCanvas = document.createElement('canvas');
             const ctx = exportCanvas.getContext('2d');
@@ -645,11 +997,9 @@
             exportCanvas.width = w;
             exportCanvas.height = h;
 
-            // 1. 白色底框
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, w, h);
 
-            // 2. 拍攝照片等比例 Cover 裁切繪製
             const photoImg = new Image();
             photoImg.onload = () => {
                 const targetW = 540;
@@ -671,7 +1021,6 @@
 
                 ctx.drawImage(photoImg, srcX, srcY, srcW, srcH, 30, 30, targetW, targetH);
 
-                // 3. 繪製手寫文字訊息
                 const messageText = document.getElementById('polaroid-text-input').value || "Street Art 2026";
                 ctx.fillStyle = '#222222';
                 ctx.font = 'bold 30px "Courier New", Courier, monospace';
@@ -679,7 +1028,6 @@
                 ctx.textBaseline = 'middle';
                 ctx.fillText(messageText, w / 2, 640);
 
-                // 4. Blob Stream 高相容性下載
                 exportCanvas.toBlob((blob) => {
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
